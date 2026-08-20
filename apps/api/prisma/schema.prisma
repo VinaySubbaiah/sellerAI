@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BrandStyle {
+  MINIMAL
+  PREMIUM
+  NATURAL
+  LUXURY
+  BOLD
+  PLAYFUL
+}
+
+enum ContentLanguage {
+  ENGLISH
+  HINDI
+  KANNADA
+}
+
+enum Platform {
+  AMAZON
+  FLIPKART
+  MEESHO
+  SHOPIFY
+  INSTAGRAM
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ProjectType {
+  LISTING
+  PRODUCT_PHOTOS
+  MARKETING
+  PHOTO_EDIT
+  ANIMATED_REEL
+}
+
+enum LedgerType {
+  SIGNUP_BONUS
+  PURCHASE
+  RESERVATION
+  CONSUMPTION
+  REFUND
+  ADMIN_ADJUSTMENT
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model UserProfile {
+  id                  String    @id @default(uuid())
+  firebaseUid         String    @unique
+  email               String    @unique
+  name                String
+  role                Role      @default(USER)
+  onboardingCompleted Boolean   @default(false)
+  preferredLanguage   ContentLanguage @default(ENGLISH)
+  notificationsEnabled Boolean  @default(true)
+  signupBonusGranted  Boolean   @default(false)
+  signupFingerprint   String?
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  brand         Brand?
+  products      Product[]
+  projects      Project[]
+  jobs          GenerationJob[]
+  wallet        CreditWallet?
+  payments      Payment[]
+  tickets       SupportTicket[]
+  notifications Notification[]
+  aiLogs        AiUsageLog[]
+
+  @@index([email])
+}
+
+model Brand {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  user           UserProfile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  category       String
+  logoKey        String?
+  website        String?
+  instagram      String?
+  whatsapp       String?
+  style          BrandStyle      @default(MINIMAL)
+  primaryColor   String          @default("#4F46E5")
+  secondaryColor String          @default("#2563EB")
+  defaultCta     String          @default("Shop now")
+  language       ContentLanguage @default(ENGLISH)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Product {
+  id           String      @id @default(uuid())
+  userId       String
+  user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  brandName    String?
+  category     String
+  sellingPrice Int?
+  description  String?
+  platforms    Platform[]
+  archivedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  images         ProductImage[]
+  specification  ProductSpecification?
+  projects       Project[]
+  jobs           GenerationJob[]
+  readinessChecks ListingReadinessCheck[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, name])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storageKey String
+  mime      String
+  width     Int
+  height    Int
+  bytes     Int
+  isMain    Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model ProductSpecification {
+  id                 String   @id @default(uuid())
+  productId          String   @unique
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  aiSuggestion       Json?
+  confirmed          Json?
+  confirmedAt        DateTime?
+  analysisWarnings   Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Project {
+  id          String      @id @default(uuid())
+  userId      String
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  type        ProjectType
+  title       String
+  status      JobStatus   @default(QUEUED)
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  jobs            GenerationJob[]
+  assets          GeneratedAsset[]
+  listingContent  ListingContent?
+  zipKey          String?
+
+  @@index([userId, createdAt])
+  @@index([userId, type, status])
+}
+
+model GenerationJob {
+  id               String      @id @default(uuid())
+  userId           String
+  user             UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String?
+  product          Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  projectId        String?
+  project          Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  type             String
+  status           JobStatus   @default(QUEUED)
+  progress         Int         @default(0)
+  payload          Json
+  error            String?
+  retryCount       Int         @default(0)
+  creditsReserved  Int         @default(0)
+  creditsConsumed  Int         @default(0)
+  provider         String?
+  model            String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  assets GeneratedAsset[]
+  aiLogs AiUsageLog[]
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model GeneratedAsset {
+  id        String         @id @default(uuid())
+  projectId String
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobId     String?
+  job       GenerationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  type      String
+  storageKey String
+  mime      String
+  width     Int?
+  height    Int?
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([projectId])
+}
+
+model ListingContent {
+  id                String   @id @default(uuid())
+  projectId         String   @unique
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title             String
+  bulletPoints      Json
+  description       String
+  keywords          Json
+  warnings          Json
+  language          ContentLanguage @default(ENGLISH)
+  requiresUserInput Json
+  updatedAt         DateTime @updatedAt
+}
+
+model ListingReadinessCheck {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  projectId String?
+  score     Int
+  label     String
+  checks    Json
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+}
+
+model CreditWallet {
+  id        String      @id @default(uuid())
+  userId    String      @unique
+  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int         @default(0)
+  version   Int         @default(0)
+  updatedAt DateTime    @updatedAt
+  ledger    CreditLedger[]
+}
+
+model CreditLedger {
+  id             String      @id @default(uuid())
+  walletId       String
+  wallet         CreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type           LedgerType
+  amount         Int
+  balanceAfter   Int
+  referenceType  String?
+  referenceId    String?
+  idempotencyKey String      @unique
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model CreditPackage {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  credits     Int
+  amountPaise Int
+  currency    String    @default("INR")
+  popular     Boolean   @default(false)
+  active      Boolean   @default(true)
+  payments    Payment[]
+}
+
+model CreditCostConfig {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  credits     Int
+  description String
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  user              UserProfile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String
+  package           CreditPackage @relation(fields: [packageId], references: [id])
+  amountPaise       Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(CREATED)
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?
+  creditsGranted    Boolean       @default(false)
+  confirmedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  events            PaymentEvent[]
+
+  @@index([userId, createdAt])
+}
+
+model PaymentEvent {
+  id              String   @id @default(uuid())
+  paymentId       String
+  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  eventType       String
+  providerEventId String   @unique
+  payload         Json
+  processed       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model SupportTicket {
+  id        String      @id @default(uuid())
+  userId    String?
+  user      UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  category  String
+  subject   String
+  message   String
+  status    String      @default("OPEN")
+  createdAt DateTime    @default(now())
+}
+
+model HelpArticle {
+  id       String @id @default(uuid())
+  category String
+  question String
+  answer   String
+}
+
+model Notification {
+  id        String      @id @default(uuid())
+  userId    String
+  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AiUsageLog {
+  id            String         @id @default(uuid())
+  userId        String?
+  user          UserProfile?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  jobId         String?
+  job           GenerationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  provider      String
+  model         String
+  inputTokens   Int            @default(0)
+  outputTokens  Int            @default(0)
+  imageCount    Int            @default(0)
+  durationMs    Int
+  estimatedCost Float          @default(0)
+  createdAt     DateTime       @default(now())
+}
+
+model ReadinessRule {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Int
+}
