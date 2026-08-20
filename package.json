@@ -1,0 +1,24 @@
+{
+  "name": "sellerstudio-ai",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --filter @sellerstudio/shared build && pnpm --parallel --filter @sellerstudio/api --filter @sellerstudio/worker --filter @sellerstudio/web --filter @sellerstudio/ui dev",
+    "dev:api": "pnpm --filter @sellerstudio/api dev",
+    "dev:web": "pnpm --filter @sellerstudio/web dev",
+    "dev:worker": "pnpm --filter @sellerstudio/worker dev",
+    "build": "pnpm --filter @sellerstudio/shared build && pnpm --filter @sellerstudio/ui build && pnpm --filter @sellerstudio/api build && pnpm --filter @sellerstudio/worker build && pnpm --filter @sellerstudio/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm --filter @sellerstudio/shared build && pnpm -r --if-present typecheck",
+    "test": "pnpm --filter @sellerstudio/shared test && pnpm --filter @sellerstudio/api test",
+    "test:e2e": "pnpm --filter @sellerstudio/web test:e2e",
+    "db:generate": "pnpm --filter @sellerstudio/api prisma:generate",
+    "db:migrate": "pnpm --filter @sellerstudio/api prisma:migrate",
+    "db:seed": "pnpm --filter @sellerstudio/api prisma:seed",
+    "db:reset": "pnpm --filter @sellerstudio/api prisma:reset"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
